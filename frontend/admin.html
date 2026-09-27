@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Dashboard — Trust Mesh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+<style>
+.admin-page { padding: 80px 2rem 3rem; max-width: 1300px; margin: 0 auto; }
+.demo-step {
+  display: flex; align-items: center; gap: 1rem;
+  padding: .85rem 1.25rem; border-radius: var(--radius);
+  background: var(--c-panel); border: 1px solid var(--c-border2);
+  margin-bottom: .5rem; transition: var(--transition);
+}
+.demo-step.done   { border-color: rgba(74,222,128,.4); background: rgba(74,222,128,.04); }
+.demo-step.active { border-color: rgba(250,204,21,.5); background: rgba(250,204,21,.04); }
+.demo-step-num {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: .85rem;
+  background: rgba(255,255,255,.05); border: 1px solid var(--c-border2);
+}
+.demo-step.done   .demo-step-num { background: var(--c-green); color: #0a0f0a; border-color: var(--c-green); }
+.demo-step.active .demo-step-num { background: var(--c-gold); color: #0a0f0a; border-color: var(--c-gold); animation: pulse 1s infinite; }
+
+.tamper-box {
+  padding: 1.5rem; border-radius: var(--radius-lg);
+  border: 2px solid rgba(248,113,113,.3); background: rgba(248,113,113,.05);
+}
+.tamper-result {
+  margin-top: 1rem; padding: 1rem; border-radius: var(--radius);
+  font-family: var(--font-mono); font-size: .82rem; display: none;
+}
+.tamper-tampered {
+  background: rgba(248,113,113,.15); border: 1px solid rgba(248,113,113,.4);
+  color: var(--c-red); animation: tamperBlink .5s infinite;
+}
+.tamper-valid {
+  background: rgba(74,222,128,.1); border: 1px solid rgba(74,222,128,.3);
+  color: var(--c-green);
+}
+
+.sim-control {
+  display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;
+}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-brand"><div class="nav-logo">🌾</div><span class="nav-title">Trust Mesh</span></div>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="farmer.html">Farmer</a></li>
+    <li><a href="hardware.html">Device</a></li>
+    <li><a href="monitor.html">Live Sensors</a></li>
+    <li><a href="supply.html">Supply Chain</a></li>
+    <li><a href="blockchain.html">Blockchain</a></li>
+    <li><a href="verify.html">Verify</a></li>
+    <li><a href="admin.html" class="active">Admin</a></li>
+  </ul>
+  <div class="nav-status"><div class="status-dot" id="apiDot"></div><span id="apiStatus">Connecting...</span></div>
+</nav>
+
+<div class="admin-page">
+  <h1 class="page-title" style="font-size:2rem;padding:0;margin-bottom:.5rem">⚙️ Admin Dashboard</h1>
+  <p style="color:var(--c-text-muted);margin-bottom:2rem">System management, simulation control, tamper detection, SIH demo mode</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:start">
+
+    <!-- Left -->
+    <div style="display:flex;flex-direction:column;gap:1.5rem">
+
+      <!-- Stats -->
+      <div class="glass-card">
+        <h3 style="margin-bottom:1rem">📊 System Stats</h3>
+        <div class="metric-grid" style="grid-template-columns:1fr 1fr;gap:.75rem" id="adminStats">
+          <div style="text-align:center;padding:1rem;color:var(--c-text-muted)">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Simulation control -->
+      <div class="glass-card">
+        <h3 style="margin-bottom:.75rem">🤖 Hardware Simulation Mode</h3>
+        <p style="font-size:.85rem;color:var(--c-text-muted);margin-bottom:1rem">
+          Simulates ESP32 sensor data when physical hardware is unavailable.
+          Data is clearly labeled as <span class="badge badge-orange">SIM</span>.
+        </p>
+        <div class="sim-control">
+          <button class="btn btn-gold" id="startSimBtn" onclick="startSim()">▶ Start Simulation</button>
+          <button class="btn btn-danger" id="stopSimBtn" onclick="stopSim()" style="display:none">⏹ Stop Simulation</button>
+          <span id="simStatus" class="badge badge-blue">STOPPED</span>
+        </div>
+        <div style="font-size:.75rem;color:var(--c-text-dim);margin-top:.75rem">Sends data for AGRI-001 every 5 seconds via DEVICE-SIM-001</div>
+      </div>
+
+      <!-- Devices -->
+      <div class="glass-card">
+        <h3 style="margin-bottom:1rem">📡 Registered Devices</h3>
+        <div id="deviceList"><div class="spinner"></div></div>
+      </div>
+
+      <!-- API test -->
+      <div class="glass-card">
+        <h3 style="margin-bottom:.75rem">🔌 Manual Sensor Push</h3>
+        <p style="font-size:.82rem;color:var(--c-text-muted);margin-bottom:.75rem">Test the API by pushing a manual reading:</p>
+        <div class="form-grid" style="gap:.5rem;margin-bottom:.75rem">
+          <div class="form-group"><label>Temperature</label><input type="number" id="manTemp" value="25.4" step="0.1"></div>
+          <div class="form-group"><label>Humidity</label><input type="number" id="manHum" value="67" step="0.1"></div>
+        </div>
+        <button class="btn" onclick="pushManual()">📤 Push Reading</button>
+        <div id="manualResult" style="margin-top:.5rem;font-size:.8rem"></div>
+      </div>
+    </div>
+
+    <!-- Right: Demo Mode + Tamper -->
+    <div style="display:flex;flex-direction:column;gap:1.5rem">
+
+      <!-- SIH Demo Mode -->
+      <div class="glass-card" id="demo">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+          <h3>🎯 SIH Demo Mode</h3>
+          <div style="display:flex;gap:.5rem">
+            <button class="btn btn-gold" onclick="runNextStep()">▶ Next Step</button>
+            <button class="btn" onclick="resetDemo()">↺ Reset</button>
+          </div>
+        </div>
+        <div id="demoSteps"></div>
+        <div id="demoOutput" style="margin-top:1rem;font-size:.82rem;color:var(--c-text-muted);font-family:var(--font-mono)"></div>
+      </div>
+
+      <!-- Tamper Detection -->
+      <div class="tamper-box">
+        <h3 style="margin-bottom:.5rem;color:var(--c-red)">🛡️ Tamper Detection Test</h3>
+        <p style="font-size:.82rem;color:var(--c-text-muted);margin-bottom:1rem">
+          Simulates an attacker mutating a stored record, then verifies the blockchain detects it.
+        </p>
+        <div class="form-grid" style="gap:.5rem;margin-bottom:.75rem">
+          <div class="form-group"><label>Product ID</label><input type="text" id="tamperId" value="AGRI-001"></div>
+          <div class="form-group"><label>Block Index</label><input type="number" id="tamperBlock" value="1" min="0"></div>
+        </div>
+        <button class="btn btn-danger" onclick="runTamperTest()" style="width:100%;justify-content:center">
+          🔴 TEST DATA INTEGRITY
+        </button>
+        <div id="tamperResult" class="tamper-result"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="sim-banner" id="simBanner" style="display:none">
+  ⚠️ <strong>SIMULATION MODE ACTIVE</strong> — Data generated by software, not physical hardware
+  <button onclick="stopSim()" class="sim-stop-btn">Stop Simulation</button>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+let demoStep = 0;
+
+// ---- Demo mode -----------------------------------------------
+function renderDemoSteps() {
+  const steps = window.DEMO_STEPS || [];
+  document.getElementById('demoSteps').innerHTML = steps.map((s,i) => `
+    <div class="demo-step" id="dstep-${s.id}">
+      <div class="demo-step-num">${i < demoStep ? '✓' : s.id}</div>
+      <div>
+        <div style="font-weight:600;font-size:.88rem">${s.label}</div>
+        <div style="font-size:.75rem;color:var(--c-text-muted)">${s.desc}</div>
+      </div>
+    </div>`).join('');
+  // Mark done/active
+  steps.forEach((s,i) => {
+    const el = document.getElementById(`dstep-${s.id}`);
+    if (i < demoStep)     el.className = 'demo-step done';
+    else if (i===demoStep) el.className = 'demo-step active';
+    else                   el.className = 'demo-step';
+  });
+}
+
+async function runNextStep() {
+  const steps = window.DEMO_STEPS || [];
+  if (demoStep >= steps.length) { toast('Demo complete! Click Reset to restart.', 'success'); return; }
+
+  const step = steps[demoStep];
+  const out = document.getElementById('demoOutput');
+  out.textContent = `▶ Executing: ${step.label}...`;
+
+  // Perform actual actions for key steps
+  try {
+    if (step.id === 3) {
+      await API.registerProduct({ product_id:'AGRI-001', farmer_user_id:'USER-FARMER-001', name:'Organic Tomatoes', category:'Vegetable', quantity:500, unit:'kg', harvest_date:'2026-09-20', origin_location:'Nashik, Maharashtra' });
+      out.textContent = '✓ Product AGRI-001 registered — Genesis block created';
+    } else if (step.id === 6) {
+      await API.sendSensorData({ device_id:'DEVICE-001', product_id:'AGRI-001', temperature:25.4, humidity:67, latitude:20.0059, longitude:73.7897, timestamp:new Date().toISOString(), is_simulated:false });
+      out.textContent = '✓ Sensor data sent: T=25.4°C H=67% GPS=Nashik';
+    } else if (step.id === 8) {
+      await API.addSupplyEvent({ product_id:'AGRI-001', user_id:'USER-FARMER-001', event_type:'FARM_HARVESTED', location:'Nashik, Maharashtra', notes:'Batch A — Premium quality' });
+      out.textContent = '✓ FARM_HARVESTED event recorded on blockchain';
+    } else if (step.id === 12) {
+      const r = await API.tamperTest({ product_id:'AGRI-001', block_index:1 });
+      const anyTampered = r.report?.blocks?.some(b => b.status === 'TAMPERED');
+      out.innerHTML = anyTampered
+        ? '<span style="color:var(--c-red);font-weight:700;animation:tamperBlink .5s infinite">🚨 DATA TAMPERED — Hash mismatch detected!</span>'
+        : '✓ Chain valid — No tampering detected';
+    } else {
+      out.textContent = `✓ ${step.label} — ${step.desc}`;
+    }
+  } catch(e) {
+    out.textContent = `⚠ ${e.message} (may already exist — continuing)`;
+  }
+
+  demoStep++;
+  renderDemoSteps();
+}
+
+function resetDemo() { demoStep = 0; renderDemoSteps(); document.getElementById('demoOutput').textContent = 'Demo reset. Click "Next Step" to begin.'; }
+
+// ---- Tamper test ---------------------------------------------
+async function runTamperTest() {
+  const pid   = document.getElementById('tamperId').value;
+  const block = parseInt(document.getElementById('tamperBlock').value);
+  const el    = document.getElementById('tamperResult');
+
+  el.style.display = 'block';
+  el.className = 'tamper-result';
+  el.textContent = 'Running integrity check...';
+
+  try {
+    const r = await API.tamperTest({ product_id: pid, block_index: block });
+    const anyTampered = r.report?.blocks?.some(b => b.status === 'TAMPERED');
+
+    if (anyTampered) {
+      el.className = 'tamper-result tamper-tampered';
+      el.innerHTML = `🚨 DATA TAMPERED!\n\nField mutated: ${r.mutated_field}\n` +
+        r.report.blocks.filter(b=>b.status==='TAMPERED').map(b=>
+          `Block #${b.block_index}: stored=${b.stored_hash?.slice(0,16)}... ≠ recomputed=${b.recomputed?.slice(0,16)}...`
+        ).join('\n');
+    } else {
+      el.className = 'tamper-result tamper-valid';
+      el.textContent = '✓ DATA VERIFIED — All hashes match. Chain is intact.';
+    }
+    toast(anyTampered ? '🚨 Tamper detected!' : '✓ Data verified', anyTampered ? 'error' : 'success');
+  } catch(e) {
+    el.textContent = '❌ ' + e.message;
+    toast(e.message, 'error');
+  }
+}
+
+// ---- Simulation ---------------------------------------------
+async function startSim() {
+  try {
+    await API.startSimulation();
+    document.getElementById('startSimBtn').style.display = 'none';
+    document.getElementById('stopSimBtn').style.display  = 'flex';
+    document.getElementById('simStatus').textContent = 'RUNNING';
+    document.getElementById('simStatus').className   = 'badge badge-green';
+    document.getElementById('simBanner').style.display = 'flex';
+    toast('Simulation started!', 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function stopSim() {
+  try {
+    await API.stopSimulation();
+    document.getElementById('startSimBtn').style.display = 'flex';
+    document.getElementById('stopSimBtn').style.display  = 'none';
+    document.getElementById('simStatus').textContent = 'STOPPED';
+    document.getElementById('simStatus').className   = 'badge badge-blue';
+    document.getElementById('simBanner').style.display = 'none';
+    toast('Simulation stopped.', 'success');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ---- Manual push --------------------------------------------
+async function pushManual() {
+  const t = parseFloat(document.getElementById('manTemp').value);
+  const h = parseFloat(document.getElementById('manHum').value);
+  try {
+    const r = await API.sendSensorData({ device_id:'DEVICE-001', product_id:'AGRI-001', temperature:t, humidity:h, latitude:20.0059, longitude:73.7897, timestamp:new Date().toISOString(), is_simulated:false });
+    document.getElementById('manualResult').innerHTML = `<span style="color:var(--c-green)">✓ Hash: ${shortHash(r.data_hash)}</span>`;
+    toast('Reading pushed!', 'success');
+  } catch(e) {
+    document.getElementById('manualResult').innerHTML = `<span style="color:var(--c-red)">❌ ${e.message}</span>`;
+  }
+}
+
+// ---- Stats --------------------------------------------------
+async function loadStats() {
+  try {
+    const s = await API.getStats();
+    document.getElementById('adminStats').innerHTML = `
+      <div class="metric-card"><div class="metric-label">Products</div><div class="metric-val metric-ok">${s.products}</div></div>
+      <div class="metric-card"><div class="metric-label">Sensor Readings</div><div class="metric-val metric-humid">${s.sensor_readings}</div></div>
+      <div class="metric-card"><div class="metric-label">Supply Events</div><div class="metric-val metric-temp">${s.supply_events}</div></div>
+      <div class="metric-card"><div class="metric-label">Blockchain Records</div><div class="metric-val metric-chain">${s.blockchain_txns}</div></div>`;
+
+    if (s.simulation_mode) {
+      document.getElementById('startSimBtn').style.display = 'none';
+      document.getElementById('stopSimBtn').style.display  = 'flex';
+      document.getElementById('simStatus').textContent = 'RUNNING';
+      document.getElementById('simStatus').className   = 'badge badge-green';
+      document.getElementById('simBanner').style.display = 'flex';
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function loadDevices() {
+  try {
+    const res = await API.getDevices();
+    const devices = res.devices || [];
+    document.getElementById('deviceList').innerHTML = devices.map(d => `
+      <div style="display:flex;align-items:center;gap:.75rem;padding:.6rem;border-bottom:1px solid var(--c-border2)">
+        <div style="font-size:1.5rem">📡</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:.88rem">${d.device_id}</div>
+          <div style="font-size:.75rem;color:var(--c-text-muted)">${d.owner_name} · ${d.firmware_ver}</div>
+        </div>
+        <span class="badge ${d.is_active ? 'badge-green' : 'badge-red'}">${d.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
+      </div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+renderDemoSteps();
+loadStats();
+loadDevices();
+setInterval(loadStats, 10000);
+
+// Hash from #demo in URL
+if (window.location.hash === '#demo') {
+  document.getElementById('demo').scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

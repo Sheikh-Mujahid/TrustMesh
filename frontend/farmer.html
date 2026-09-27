@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Farmer Dashboard — Trust Mesh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+<style>
+.farmer-page { padding: 80px 2rem 3rem; max-width: 1200px; margin: 0 auto; }
+.qr-box {
+  text-align: center; padding: 2rem;
+  background: var(--c-panel); border: 1px solid var(--c-border2); border-radius: var(--radius-lg);
+}
+.qr-box img { max-width: 200px; border: 3px solid var(--c-green); border-radius: var(--radius); }
+.qr-url { font-family: var(--font-mono); font-size:.75rem; color:var(--c-text-muted); word-break:break-all; margin-top:.5rem; }
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--c-green-d), var(--c-green));
+  color: #0a0f0a; font-weight: 800; font-size: .8rem;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-brand"><div class="nav-logo">🌾</div><span class="nav-title">Trust Mesh</span></div>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="farmer.html" class="active">Farmer</a></li>
+    <li><a href="hardware.html">Device</a></li>
+    <li><a href="monitor.html">Live Sensors</a></li>
+    <li><a href="supply.html">Supply Chain</a></li>
+    <li><a href="blockchain.html">Blockchain</a></li>
+    <li><a href="verify.html">Verify</a></li>
+    <li><a href="admin.html">Admin</a></li>
+  </ul>
+  <div class="nav-status"><div class="status-dot" id="apiDot"></div><span id="apiStatus">Connecting...</span></div>
+</nav>
+
+<div class="farmer-page">
+  <h1 class="page-title" style="padding:0;margin-bottom:.5rem">Farmer Dashboard</h1>
+  <p style="color:var(--c-text-muted);margin-bottom:2rem">Register agricultural products and generate blockchain-verified QR codes</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:start">
+
+    <!-- Register Form -->
+    <div class="glass-card">
+      <h2 style="margin-bottom:1.5rem;font-size:1.15rem">Register New Product</h2>
+      <form id="registerForm">
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+          <div class="form-group">
+            <label>Product ID *</label>
+            <input type="text" id="productId" value="AGRI-001" required>
+          </div>
+          <div class="form-group">
+            <label>Device ID</label>
+            <input type="text" id="deviceId" value="DEVICE-001">
+          </div>
+          <div class="form-group">
+            <label>Farmer User ID *</label>
+            <input type="text" id="farmerId" value="USER-FARMER-001" required>
+          </div>
+          <div class="form-group">
+            <label>Product Name *</label>
+            <input type="text" id="productName" value="Organic Tomatoes" required>
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="category">
+              <option>Vegetable</option><option>Fruit</option><option>Grain</option>
+              <option>Spice</option><option>Dairy</option><option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Quantity (kg)</label>
+            <input type="number" id="quantity" value="500" step="0.01">
+          </div>
+          <div class="form-group">
+            <label>Harvest Date</label>
+            <input type="date" id="harvestDate" value="2026-09-20">
+          </div>
+          <div class="form-group">
+            <label>Origin Location</label>
+            <input type="text" id="originLocation" value="Nashik, Maharashtra">
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" style="width:100%;border:none;cursor:pointer;padding:.85rem;font-size:1rem">
+          🌾 Register Product &amp; Generate QR
+        </button>
+      </form>
+      <div id="regResult" style="margin-top:1rem"></div>
+    </div>
+
+    <!-- Right column: QR + steps -->
+    <div style="display:flex;flex-direction:column;gap:1.5rem">
+
+      <!-- QR Box -->
+      <div class="qr-box" id="qrBox">
+        <div style="font-size:3rem;margin-bottom:1rem">📱</div>
+        <p style="color:var(--c-text-muted);font-size:.88rem">Register a product to generate its QR code</p>
+      </div>
+
+      <!-- How it works -->
+      <div class="glass-card">
+        <h3 style="margin-bottom:1rem;font-size:.9rem;text-transform:uppercase;letter-spacing:.1em;color:var(--c-text-muted)">Registration Process</h3>
+        <div style="display:flex;flex-direction:column;gap:.75rem">
+          <div style="display:flex;align-items:center;gap:.75rem"><div class="step-num">1</div><span style="font-size:.85rem">Farmer fills in product details</span></div>
+          <div style="display:flex;align-items:center;gap:.75rem"><div class="step-num">2</div><span style="font-size:.85rem">Backend creates database entry</span></div>
+          <div style="display:flex;align-items:center;gap:.75rem"><div class="step-num">3</div><span style="font-size:.85rem">Genesis block mined on local blockchain</span></div>
+          <div style="display:flex;align-items:center;gap:.75rem"><div class="step-num">4</div><span style="font-size:.85rem">Unique QR code generated for product</span></div>
+          <div style="display:flex;align-items:center;gap:.75rem"><div class="step-num">5</div><span style="font-size:.85rem">ESP32 attaches to product, starts sending data</span></div>
+        </div>
+      </div>
+
+      <!-- Supply Event Form -->
+      <div class="glass-card">
+        <h3 style="margin-bottom:1rem;font-size:.9rem;text-transform:uppercase;letter-spacing:.1em;color:var(--c-text-muted)">Record Supply Event</h3>
+        <form id="eventForm">
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+            <div class="form-group">
+              <label>Product ID</label>
+              <input type="text" id="evtProduct" value="AGRI-001">
+            </div>
+            <div class="form-group">
+              <label>User ID</label>
+              <input type="text" id="evtUser" value="USER-FARMER-001">
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Event Type</label>
+              <select id="evtType">
+                <option>FARM_HARVESTED</option>
+                <option>COLLECTION_CENTER_RECEIVED</option>
+                <option>TRANSPORT_DISPATCHED</option>
+                <option>WAREHOUSE_RECEIVED</option>
+                <option>RETAILER_RECEIVED</option>
+                <option>CONSUMER_DELIVERED</option>
+              </select>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Location</label>
+              <input type="text" id="evtLocation" value="Nashik, Maharashtra">
+            </div>
+            <div class="form-group">
+              <label>Notes</label>
+              <input type="text" id="evtNotes" value="Batch quality: Good">
+            </div>
+          </div>
+          <button type="submit" class="btn" style="width:100%">⛓️ Record Event on Blockchain</button>
+        </form>
+        <div id="evtResult" style="margin-top:.75rem"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+document.getElementById('registerForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button');
+  btn.disabled = true; btn.textContent = 'Registering...';
+
+  const data = {
+    product_id:      document.getElementById('productId').value,
+    device_id:       document.getElementById('deviceId').value || null,
+    farmer_user_id:  document.getElementById('farmerId').value,
+    name:            document.getElementById('productName').value,
+    category:        document.getElementById('category').value,
+    quantity:        parseFloat(document.getElementById('quantity').value),
+    unit:            'kg',
+    harvest_date:    document.getElementById('harvestDate').value,
+    origin_location: document.getElementById('originLocation').value,
+  };
+
+  try {
+    const res = await API.registerProduct(data);
+    document.getElementById('regResult').innerHTML =
+      `<div class="badge badge-green" style="padding:.5rem 1rem;font-size:.85rem">✓ ${res.message}</div>`;
+
+    // QR
+    const qrBox = document.getElementById('qrBox');
+    qrBox.innerHTML = `
+      <h4 style="margin-bottom:1rem">${res.product_id}</h4>
+      <div id="qrCanvas" style="display:flex;justify-content:center;margin-bottom:1rem"></div>
+      <p style="font-size:.8rem;color:var(--c-text-muted)">Scan to verify product</p>
+      <div class="qr-url">${res.qr_url}</div>
+      <div style="margin-top:1rem;display:flex;gap:.5rem;justify-content:center">
+        <a href="supply.html?id=${res.product_id}" class="btn">View Supply Chain</a>
+        <a href="blockchain.html?id=${res.product_id}" class="btn btn-gold">View Blockchain</a>
+      </div>`;
+    generateQRCanvas(res.qr_url, 'qrCanvas');
+    toast(`Product ${res.product_id} registered!`, 'success');
+  } catch(err) {
+    document.getElementById('regResult').innerHTML =
+      `<div class="badge badge-red" style="padding:.5rem 1rem;font-size:.85rem">❌ ${err.message}</div>`;
+    toast(err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '🌾 Register Product & Generate QR';
+  }
+});
+
+document.getElementById('eventForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = {
+    product_id: document.getElementById('evtProduct').value,
+    user_id:    document.getElementById('evtUser').value,
+    event_type: document.getElementById('evtType').value,
+    location:   document.getElementById('evtLocation').value,
+    notes:      document.getElementById('evtNotes').value,
+  };
+  try {
+    const res = await API.addSupplyEvent(data);
+    document.getElementById('evtResult').innerHTML =
+      `<div class="badge badge-green">✓ Block ${res.block_index} — ${shortHash(res.current_hash)}</div>`;
+    toast('Supply event recorded on blockchain!', 'success');
+  } catch(err) {
+    document.getElementById('evtResult').innerHTML =
+      `<div class="badge badge-red">❌ ${err.message}</div>`;
+    toast(err.message, 'error');
+  }
+});
+</script>
+</body>
+</html>

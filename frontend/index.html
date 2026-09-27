@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trust Mesh — Blockchain-Powered Agricultural Supply Chain</title>
+<meta name="description" content="Trust Mesh: IoT + Blockchain supply-chain traceability for Indian agriculture. Farm to consumer transparency.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="navbar" id="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo">🌾</div>
+    <span class="nav-title">Trust Mesh</span>
+    <span class="nav-sub">IoT + Blockchain</span>
+  </div>
+  <ul class="nav-links">
+    <li><a href="index.html" class="active">Home</a></li>
+    <li><a href="farmer.html">Farmer</a></li>
+    <li><a href="hardware.html">Device</a></li>
+    <li><a href="monitor.html">Live Sensors</a></li>
+    <li><a href="supply.html">Supply Chain</a></li>
+    <li><a href="blockchain.html">Blockchain</a></li>
+    <li><a href="verify.html">Verify</a></li>
+    <li><a href="admin.html">Admin</a></li>
+  </ul>
+  <div class="nav-status">
+    <div class="status-dot" id="apiDot" title="API Status"></div>
+    <span id="apiStatus">Connecting...</span>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg">
+    <div class="hero-orb orb1"></div>
+    <div class="hero-orb orb2"></div>
+    <div class="hero-orb orb3"></div>
+    <div class="grid-overlay"></div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-badge">🏆 SIH 2026 Student Innovation</div>
+    <h1 class="hero-title">
+      Farm to Consumer<br>
+      <span class="gradient-text">Blockchain Transparency</span>
+    </h1>
+    <p class="hero-desc">
+      Trust Mesh combines <strong>ESP32 IoT sensors</strong>, <strong>SHA-256 Blockchain</strong>,
+      and <strong>real-time tracking</strong> to create an tamper-proof agricultural
+      supply chain — protecting farmers and consumers across India.
+    </p>
+    <div class="hero-actions">
+      <a href="farmer.html" class="btn-primary">Register Product</a>
+      <a href="verify.html" class="btn-secondary">Verify Product</a>
+      <a href="monitor.html" class="btn-ghost">Live Sensors →</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><span class="hstat-val" id="hs-products">—</span><span class="hstat-label">Products Tracked</span></div>
+      <div class="hstat"><span class="hstat-val" id="hs-readings">—</span><span class="hstat-label">Sensor Readings</span></div>
+      <div class="hstat"><span class="hstat-val" id="hs-blocks">—</span><span class="hstat-label">Blockchain Entries</span></div>
+      <div class="hstat"><span class="hstat-val" id="hs-events">—</span><span class="hstat-label">Chain Events</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section" id="features">
+  <div class="section-header">
+    <h2>How Trust Mesh Works</h2>
+    <p>A complete end-to-end traceability system built for SIH 2026</p>
+  </div>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📡</div>
+      <h3>IoT Sensor Device</h3>
+      <p>ESP32 with DHT22, NEO-6M GPS, OLED display. Records temperature, humidity, and GPS location every 10 seconds.</p>
+      <a href="hardware.html" class="feature-link">View Device →</a>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⛓️</div>
+      <h3>Local Blockchain</h3>
+      <p>SHA-256 proof-of-work blockchain records every supply-chain event. Tamper detection built-in. Production DLT ready.</p>
+      <a href="blockchain.html" class="feature-link">Explore Blocks →</a>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>Live Monitoring</h3>
+      <p>Real-time temperature and humidity charts. Automatic alerts for out-of-range conditions. Historical data analysis.</p>
+      <a href="monitor.html" class="feature-link">Monitor Now →</a>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🚚</div>
+      <h3>Supply Chain</h3>
+      <p>Visual timeline from Farm → Collection → Transport → Warehouse → Retailer → Consumer with blockchain verification.</p>
+      <a href="supply.html" class="feature-link">Track Journey →</a>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📱</div>
+      <h3>QR Verification</h3>
+      <p>Every product gets a unique QR code. Consumers scan to see complete farm history, sensor data, and blockchain proof.</p>
+      <a href="verify.html" class="feature-link">Verify Product →</a>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🛡️</div>
+      <h3>Tamper Detection</h3>
+      <p>Any modification to supply-chain records is detected by re-computing SHA-256 and comparing with on-chain hash.</p>
+      <a href="admin.html" class="feature-link">Run Test →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section class="section dark-section">
+  <div class="section-header">
+    <h2>System Architecture</h2>
+    <p>Hardware → Backend → Blockchain → Dashboard</p>
+  </div>
+  <div class="arch-flow">
+    <div class="arch-node sensor-node">
+      <div class="arch-icon">🔌</div>
+      <strong>ESP32</strong>
+      <small>DHT22 · GPS · OLED</small>
+    </div>
+    <div class="arch-arrow">Wi-Fi<br>HTTP POST</div>
+    <div class="arch-node api-node">
+      <div class="arch-icon">⚡</div>
+      <strong>FastAPI</strong>
+      <small>Python Backend</small>
+    </div>
+    <div class="arch-arrow">SQL</div>
+    <div class="arch-node db-node">
+      <div class="arch-icon">🗄️</div>
+      <strong>MySQL</strong>
+      <small>Off-chain data</small>
+    </div>
+    <div class="arch-arrow">Hash</div>
+    <div class="arch-node chain-node">
+      <div class="arch-icon">⛓️</div>
+      <strong>Blockchain</strong>
+      <small>SHA-256 Ledger</small>
+    </div>
+    <div class="arch-arrow">REST API</div>
+    <div class="arch-node dash-node">
+      <div class="arch-icon">🖥️</div>
+      <strong>Dashboard</strong>
+      <small>HTML + JS</small>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section class="section">
+  <div class="section-header">
+    <h2>Technology Stack</h2>
+  </div>
+  <div class="tech-grid">
+    <div class="tech-item"><span class="tech-badge hardware">HARDWARE</span> ESP32 DevKit V1</div>
+    <div class="tech-item"><span class="tech-badge hardware">SENSOR</span> DHT22 Temp+Humidity</div>
+    <div class="tech-item"><span class="tech-badge hardware">GPS</span> NEO-6M GNSS Module</div>
+    <div class="tech-item"><span class="tech-badge hardware">DISPLAY</span> SSD1306 OLED 128×64</div>
+    <div class="tech-item"><span class="tech-badge backend">BACKEND</span> Python FastAPI</div>
+    <div class="tech-item"><span class="tech-badge backend">DATABASE</span> MySQL 8.0</div>
+    <div class="tech-item"><span class="tech-badge chain">BLOCKCHAIN</span> SHA-256 PoW</div>
+    <div class="tech-item"><span class="tech-badge chain">CRYPTO</span> Tamper Detection</div>
+    <div class="tech-item"><span class="tech-badge frontend">FRONTEND</span> HTML5 + Vanilla JS</div>
+    <div class="tech-item"><span class="tech-badge frontend">CHARTS</span> Chart.js</div>
+    <div class="tech-item"><span class="tech-badge frontend">QR</span> QR Code Generation</div>
+    <div class="tech-item"><span class="tech-badge frontend">DESIGN</span> CSS3 Glassmorphism</div>
+  </div>
+</section>
+
+<!-- DEMO MODE BUTTON -->
+<div class="demo-float" id="demoBtn">
+  <button class="btn-demo" onclick="window.location.href='admin.html#demo'">
+    🎯 SIH DEMO MODE
+  </button>
+</div>
+
+<!-- SIM BANNER -->
+<div class="sim-banner" id="simBanner" style="display:none">
+  ⚠️ <strong>SIMULATION MODE ACTIVE</strong> — Data generated by software, not physical hardware
+  <button onclick="stopSim()" class="sim-stop-btn">Stop Simulation</button>
+</div>
+
+<footer class="footer">
+  <div class="footer-content">
+    <div class="footer-brand">🌾 Trust Mesh v1.0 — SIH 2026</div>
+    <div class="footer-links">
+      <a href="docs/README.md">Documentation</a>
+      <a href="docs/API.md">API Docs</a>
+      <a href="docs/CIRCUIT.md">Circuit Diagram</a>
+    </div>
+    <div class="footer-note">Local prototype — blockchain is SHA-256 PoW. Production deployment would use Hyperledger Fabric or IOTA.</div>
+  </div>
+</footer>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+  async function init() {
+    const stats = await API.getStats();
+    if (stats) {
+      document.getElementById('hs-products').textContent = stats.products || 0;
+      document.getElementById('hs-readings').textContent = stats.sensor_readings || 0;
+      document.getElementById('hs-blocks').textContent   = stats.blockchain_txns || 0;
+      document.getElementById('hs-events').textContent   = stats.supply_events || 0;
+      if (stats.simulation_mode) showSimBanner();
+    }
+  }
+  function showSimBanner() {
+    document.getElementById('simBanner').style.display = 'flex';
+  }
+  async function stopSim() {
+    await API.stopSimulation();
+    document.getElementById('simBanner').style.display = 'none';
+  }
+  init();
+  checkAPIStatus();
+  setInterval(init, 10000);
+</script>
+</body>
+</html>

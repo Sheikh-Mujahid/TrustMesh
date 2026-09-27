@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verify Product — Trust Mesh</title>
+<meta name="description" content="Verify agricultural product authenticity and blockchain record.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+<style>
+.verify-page { padding: 80px 2rem 3rem; max-width: 900px; margin: 0 auto; }
+.verify-search {
+  display: flex; gap: 1rem; margin-bottom: 2rem; align-items: center; flex-wrap: wrap;
+}
+.verify-search input {
+  flex: 1; min-width: 200px; padding: .75rem 1.25rem;
+  font-size: 1rem; border-radius: var(--radius);
+  background: rgba(255,255,255,.04); border: 1px solid var(--c-border2); color: var(--c-text);
+  font-family: var(--font-main);
+}
+.verify-result { display: none; }
+.detail-row { display: flex; gap: .75rem; padding: .6rem 0; border-bottom: 1px solid var(--c-border2); flex-wrap: wrap; }
+.detail-label { font-size: .78rem; color: var(--c-text-muted); width: 160px; flex-shrink: 0; font-weight: 600; }
+.detail-val   { font-size: .88rem; flex: 1; }
+.temp-hist { display: flex; gap: .35rem; flex-wrap: wrap; }
+.temp-chip {
+  padding: .15rem .45rem; border-radius: 4px;
+  background: rgba(251,146,60,.1); color: var(--c-orange);
+  font-size: .72rem; font-family: var(--font-mono);
+}
+.hum-chip {
+  padding: .15rem .45rem; border-radius: 4px;
+  background: rgba(96,165,250,.1); color: var(--c-blue);
+  font-size: .72rem; font-family: var(--font-mono);
+}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-brand"><div class="nav-logo">🌾</div><span class="nav-title">Trust Mesh</span></div>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="farmer.html">Farmer</a></li>
+    <li><a href="hardware.html">Device</a></li>
+    <li><a href="monitor.html">Live Sensors</a></li>
+    <li><a href="supply.html">Supply Chain</a></li>
+    <li><a href="blockchain.html">Blockchain</a></li>
+    <li><a href="verify.html" class="active">Verify</a></li>
+    <li><a href="admin.html">Admin</a></li>
+  </ul>
+  <div class="nav-status"><div class="status-dot" id="apiDot"></div><span id="apiStatus">Connecting...</span></div>
+</nav>
+
+<div class="verify-page">
+  <div style="text-align:center;margin-bottom:2rem">
+    <h1 style="font-size:2.5rem;font-weight:900;margin-bottom:.5rem">Verify Product</h1>
+    <p style="color:var(--c-text-muted)">Scan a QR code or enter a Product ID to verify authenticity</p>
+  </div>
+
+  <div class="verify-search">
+    <input type="text" id="verifyId" placeholder="Enter Product ID e.g. AGRI-001" value="">
+    <button class="btn-primary" style="padding:.75rem 1.75rem;border:none;cursor:pointer;white-space:nowrap" onclick="doVerify()">
+      🔍 Verify Now
+    </button>
+  </div>
+
+  <!-- Spinner -->
+  <div id="verifySpinner" style="display:none"><div class="spinner"></div></div>
+
+  <!-- Result -->
+  <div id="verifyResult" class="verify-result">
+
+    <!-- Big result card -->
+    <div class="verify-result" id="resultCard" style="display:block;margin-bottom:2rem">
+      <div id="resultBanner"></div>
+    </div>
+
+    <!-- Product details -->
+    <div class="glass-card" style="margin-bottom:1.5rem">
+      <h3 style="margin-bottom:1rem">📦 Product Details</h3>
+      <div id="productDetails"></div>
+    </div>
+
+    <!-- Sensor summary -->
+    <div class="glass-card" style="margin-bottom:1.5rem">
+      <h3 style="margin-bottom:1rem">🌡️ Sensor History Summary</h3>
+      <div id="sensorSummary"></div>
+    </div>
+
+    <!-- Journey -->
+    <div class="glass-card" style="margin-bottom:1.5rem">
+      <h3 style="margin-bottom:1rem">🚚 Supply Chain Journey</h3>
+      <div id="journeyDiv"></div>
+    </div>
+
+    <!-- Blockchain proof -->
+    <div class="glass-card">
+      <h3 style="margin-bottom:1rem">⛓️ Blockchain Verification Proof</h3>
+      <div id="blockchainProof"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+const EVENT_ICONS = {
+  'FARM_HARVESTED':'🌾','COLLECTION_CENTER_RECEIVED':'🏪',
+  'TRANSPORT_DISPATCHED':'🚛','WAREHOUSE_RECEIVED':'🏭',
+  'RETAILER_RECEIVED':'🛒','CONSUMER_DELIVERED':'👤',
+};
+
+async function doVerify() {
+  const pid = document.getElementById('verifyId').value.trim();
+  if (!pid) { toast('Enter a Product ID', 'error'); return; }
+
+  document.getElementById('verifySpinner').style.display = 'block';
+  document.getElementById('verifyResult').style.display = 'none';
+
+  try {
+    const res = await API.verifyProduct(pid);
+    document.getElementById('verifySpinner').style.display = 'none';
+    document.getElementById('verifyResult').style.display = 'block';
+
+    const verified = res.verified && res.blockchain?.chain_valid !== false;
+    const p = res.product;
+
+    // Banner
+    document.getElementById('resultBanner').innerHTML = verified
+      ? `<div class="verify-result verify-ok" style="display:block;padding:2rem;border-radius:var(--radius-lg);border:1px solid rgba(74,222,128,.3);background:rgba(74,222,128,.06);text-align:center">
+           <div class="verify-icon">✅</div>
+           <div class="verify-title gradient-text">PRODUCT VERIFIED</div>
+           <div style="color:var(--c-text-muted);font-size:.9rem;margin-top:.5rem">Blockchain records are intact. This product is authentic.</div>
+           <div style="margin-top:1rem"><span class="badge badge-green" style="font-size:.85rem">SHA-256 Chain Valid</span></div>
+         </div>`
+      : `<div class="verify-result verify-fail" style="display:block;padding:2rem;border-radius:var(--radius-lg);border:1px solid rgba(248,113,113,.3);background:rgba(248,113,113,.06);text-align:center">
+           <div class="verify-icon">⚠️</div>
+           <div class="verify-title" style="color:var(--c-red)">DATA TAMPERED</div>
+           <div style="color:var(--c-text-muted);font-size:.9rem;margin-top:.5rem">Blockchain hash mismatch detected. Records may have been altered.</div>
+         </div>`;
+
+    // Product details
+    document.getElementById('productDetails').innerHTML = `
+      <div class="detail-row"><div class="detail-label">Product ID</div><div class="detail-val mono">${p.product_id}</div></div>
+      <div class="detail-row"><div class="detail-label">Name</div><div class="detail-val">${p.name}</div></div>
+      <div class="detail-row"><div class="detail-label">Category</div><div class="detail-val">${p.category || '—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Quantity</div><div class="detail-val">${p.quantity || '—'} ${p.unit || ''}</div></div>
+      <div class="detail-row"><div class="detail-label">Harvest Date</div><div class="detail-val">${p.harvest_date || '—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Origin</div><div class="detail-val">${p.origin_location || '—'}</div></div>
+      <div class="detail-row"><div class="detail-label">Farmer</div><div class="detail-val">${p.farmer_name} · ${p.farmer_phone || ''}</div></div>
+      <div class="detail-row"><div class="detail-label">Current Status</div><div class="detail-val">${statusBadge(p.status)}</div></div>
+      <div class="detail-row"><div class="detail-label">Registered</div><div class="detail-val">${formatDT(p.created_at)}</div></div>`;
+
+    // Sensor summary
+    const s = res.sensor_summary;
+    if (s && s.readings > 0) {
+      document.getElementById('sensorSummary').innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin-bottom:1rem">
+          <div class="metric-card" style="padding:1rem"><div class="metric-label">Min Temp</div><div class="metric-val metric-temp" style="font-size:1.25rem">${formatNum(s.min_temp,1)}°C</div></div>
+          <div class="metric-card" style="padding:1rem"><div class="metric-label">Avg Temp</div><div class="metric-val metric-temp" style="font-size:1.25rem">${formatNum(s.avg_temp,1)}°C</div></div>
+          <div class="metric-card" style="padding:1rem"><div class="metric-label">Max Temp</div><div class="metric-val metric-temp" style="font-size:1.25rem">${formatNum(s.max_temp,1)}°C</div></div>
+          <div class="metric-card" style="padding:1rem"><div class="metric-label">Avg Humidity</div><div class="metric-val metric-humid" style="font-size:1.25rem">${formatNum(s.avg_hum,1)}%</div></div>
+          <div class="metric-card" style="padding:1rem"><div class="metric-label">Total Readings</div><div class="metric-val metric-ok" style="font-size:1.25rem">${s.readings}</div></div>
+        </div>`;
+    } else {
+      document.getElementById('sensorSummary').innerHTML = '<p style="color:var(--c-text-muted)">No sensor data recorded yet.</p>';
+    }
+
+    // Journey
+    const events = res.supply_journey || [];
+    if (events.length) {
+      document.getElementById('journeyDiv').innerHTML = `
+        <div class="timeline">
+          ${events.map(ev=>`
+            <div class="timeline-item">
+              <div class="timeline-dot done">✓</div>
+              <div class="timeline-card">
+                <div class="timeline-title">${EVENT_ICONS[ev.event_type]||'📌'} ${ev.event_type.replace(/_/g,' ')}</div>
+                <div class="timeline-meta">
+                  <span>📍 ${ev.location||'—'}</span>
+                  <span>👤 ${ev.actor_name||ev.user_id}</span>
+                  <span>🕐 ${formatDT(ev.created_at)}</span>
+                </div>
+                <div class="timeline-hash">Hash: ${ev.data_hash||'—'}</div>
+              </div>
+            </div>`).join('')}
+        </div>`;
+    } else {
+      document.getElementById('journeyDiv').innerHTML = '<p style="color:var(--c-text-muted)">No supply events recorded yet.</p>';
+    }
+
+    // Blockchain proof
+    const bc = res.blockchain;
+    document.getElementById('blockchainProof').innerHTML = `
+      <div class="detail-row"><div class="detail-label">Chain Valid</div><div class="detail-val">${bc.chain_valid ? '<span class="badge badge-green">TRUE</span>' : '<span class="badge badge-red">FALSE — TAMPERED</span>'}</div></div>
+      <div class="detail-row"><div class="detail-label">Total Blocks</div><div class="detail-val">${bc.total_blocks}</div></div>
+      <div class="detail-row"><div class="detail-label">Algorithm</div><div class="detail-val mono">SHA-256 PoW (difficulty=2)</div></div>
+      <div class="detail-row"><div class="detail-label">Architecture</div><div class="detail-val" style="font-size:.8rem;color:var(--c-text-muted)">
+        OFF-CHAIN: Product info, farmer data, sensor history (MySQL) ·
+        ON-CHAIN: Block hash, prev_hash, event_type, payload_hash
+      </div></div>`;
+
+  } catch(e) {
+    document.getElementById('verifySpinner').style.display = 'none';
+    document.getElementById('verifyResult').style.display = 'block';
+    document.getElementById('resultBanner').innerHTML =
+      `<div class="verify-result verify-fail" style="display:block;padding:2rem;border-radius:var(--radius-lg);border:1px solid rgba(248,113,113,.3);text-align:center">
+         <div class="verify-icon">❌</div>
+         <div class="verify-title" style="color:var(--c-red)">Product Not Found</div>
+         <div style="color:var(--c-text-muted)">${e.message}</div>
+       </div>`;
+    toast(e.message, 'error');
+  }
+}
+
+// Auto-verify from QR URL param
+const urlId = new URLSearchParams(window.location.search).get('id');
+if (urlId) {
+  document.getElementById('verifyId').value = urlId;
+  doVerify();
+}
+</script>
+</body>
+</html>

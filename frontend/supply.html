@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Supply Chain Tracking — Trust Mesh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+<style>
+.supply-page { padding: 80px 2rem 3rem; max-width: 1200px; margin: 0 auto; }
+.stage-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: .5rem; margin-bottom: 2rem; }
+.stage-box {
+  display: flex; flex-direction: column; align-items: center; gap: .35rem;
+  padding: 1rem .5rem; border-radius: var(--radius);
+  background: var(--c-panel); border: 1px solid var(--c-border2);
+  text-align: center; font-size: .75rem; font-weight: 600;
+  transition: var(--transition); position: relative;
+}
+.stage-box.done   { border-color: rgba(74,222,128,.4); background: rgba(74,222,128,.06); }
+.stage-box.active { border-color: rgba(250,204,21,.6); background: rgba(250,204,21,.06); }
+.stage-icon { font-size: 1.75rem; }
+.stage-connector {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--c-text-dim); font-size: 1.2rem; padding-top: 1rem;
+}
+@media (max-width: 768px) { .stage-grid { grid-template-columns: repeat(3, 1fr); } }
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-brand"><div class="nav-logo">🌾</div><span class="nav-title">Trust Mesh</span></div>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="farmer.html">Farmer</a></li>
+    <li><a href="hardware.html">Device</a></li>
+    <li><a href="monitor.html">Live Sensors</a></li>
+    <li><a href="supply.html" class="active">Supply Chain</a></li>
+    <li><a href="blockchain.html">Blockchain</a></li>
+    <li><a href="verify.html">Verify</a></li>
+    <li><a href="admin.html">Admin</a></li>
+  </ul>
+  <div class="nav-status"><div class="status-dot" id="apiDot"></div><span id="apiStatus">Connecting...</span></div>
+</nav>
+
+<div class="supply-page">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;flex-wrap:wrap;gap:1rem">
+    <div>
+      <h1 class="page-title" style="font-size:2rem;padding:0">Supply Chain Tracking</h1>
+      <p style="color:var(--c-text-muted)">Complete farm-to-consumer journey with blockchain hashes</p>
+    </div>
+    <div style="display:flex;gap:.75rem">
+      <input type="text" id="supplyProductId" value="AGRI-001" style="padding:.5rem .75rem;border-radius:var(--radius-sm);background:rgba(255,255,255,.04);border:1px solid var(--c-border2);color:var(--c-text);font-family:var(--font-main)" placeholder="Product ID">
+      <button class="btn" onclick="loadSupply()">🔍 Track</button>
+    </div>
+  </div>
+
+  <!-- Stage Overview -->
+  <div class="stage-grid">
+    <div class="stage-box" id="stage-farm"><div class="stage-icon">🌾</div><span>Farm</span></div>
+    <div class="stage-box" id="stage-collection"><div class="stage-icon">🏪</div><span>Collection</span></div>
+    <div class="stage-box" id="stage-transport"><div class="stage-icon">🚛</div><span>Transport</span></div>
+    <div class="stage-box" id="stage-warehouse"><div class="stage-icon">🏭</div><span>Warehouse</span></div>
+    <div class="stage-box" id="stage-retailer"><div class="stage-icon">🛒</div><span>Retailer</span></div>
+    <div class="stage-box" id="stage-consumer"><div class="stage-icon">👤</div><span>Consumer</span></div>
+  </div>
+
+  <!-- Product info -->
+  <div id="productInfo" class="glass-card" style="margin-bottom:2rem;display:none">
+    <div id="productInfoContent"></div>
+  </div>
+
+  <!-- Timeline -->
+  <div id="timelineContainer">
+    <div style="text-align:center;padding:3rem;color:var(--c-text-muted)">
+      <div style="font-size:2rem;margin-bottom:.5rem">🔍</div>
+      Enter a Product ID and click Track to view its supply chain journey.
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+const STAGE_MAP = {
+  'FARM_HARVESTED':              'stage-farm',
+  'COLLECTION_CENTER_RECEIVED':  'stage-collection',
+  'TRANSPORT_DISPATCHED':        'stage-transport',
+  'WAREHOUSE_RECEIVED':          'stage-warehouse',
+  'RETAILER_RECEIVED':           'stage-retailer',
+  'CONSUMER_DELIVERED':          'stage-consumer',
+};
+
+const EVENT_LABELS = {
+  'FARM_HARVESTED':              '🌾 Farm Harvested',
+  'COLLECTION_CENTER_RECEIVED':  '🏪 Collection Center',
+  'TRANSPORT_DISPATCHED':        '🚛 Transport Dispatched',
+  'WAREHOUSE_RECEIVED':          '🏭 Warehouse Received',
+  'RETAILER_RECEIVED':           '🛒 Retailer Received',
+  'CONSUMER_DELIVERED':          '👤 Consumer Delivered',
+  'GENESIS':                     '⛓️ Product Registered',
+  'SENSOR_DATA':                 '📡 Sensor Reading',
+  'PRODUCT_REGISTERED':          '📋 Product Registered',
+};
+
+async function loadSupply() {
+  const pid = document.getElementById('supplyProductId').value.trim();
+  if (!pid) return;
+
+  document.getElementById('timelineContainer').innerHTML = '<div class="spinner"></div>';
+
+  // Reset stages
+  document.querySelectorAll('.stage-box').forEach(s => s.className = 'stage-box');
+
+  try {
+    const res = await API.verifyProduct(pid);
+
+    // Product info
+    const p = res.product;
+    document.getElementById('productInfo').style.display = 'block';
+    document.getElementById('productInfoContent').innerHTML = `
+      <div style="display:flex;align-items:center;gap:2rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:.72rem;color:var(--c-text-muted);text-transform:uppercase;letter-spacing:.08em">Product</div>
+          <div style="font-size:1.25rem;font-weight:800">${p.name}</div>
+          <div style="color:var(--c-text-muted);font-size:.85rem">${p.product_id} · ${p.category}</div>
+        </div>
+        <div>
+          <div style="font-size:.72rem;color:var(--c-text-muted);text-transform:uppercase">Farmer</div>
+          <div style="font-weight:600">${p.farmer_name}</div>
+          <div style="font-size:.82rem;color:var(--c-text-muted)">${p.farmer_location}</div>
+        </div>
+        <div>
+          <div style="font-size:.72rem;color:var(--c-text-muted);text-transform:uppercase">Harvest Date</div>
+          <div style="font-weight:600">${p.harvest_date || '—'}</div>
+        </div>
+        <div>
+          <div style="font-size:.72rem;color:var(--c-text-muted);text-transform:uppercase">Status</div>
+          ${statusBadge(p.status)}
+        </div>
+        <div style="margin-left:auto">
+          <div style="font-size:.72rem;color:var(--c-text-muted);text-transform:uppercase">Blockchain</div>
+          ${res.verified ? '<div class="badge badge-green" style="font-size:.85rem">✓ CHAIN VALID</div>' : '<div class="badge badge-red" style="font-size:.85rem">⚠ TAMPERED</div>'}
+        </div>
+      </div>`;
+
+    // Update stage boxes
+    const events = res.supply_journey || [];
+    let lastStage = null;
+    events.forEach(ev => {
+      const stageId = STAGE_MAP[ev.event_type];
+      if (stageId) {
+        document.getElementById(stageId).classList.add('done');
+        lastStage = stageId;
+      }
+    });
+    if (lastStage) {
+      // Mark the NEXT stage as active
+      const order = ['stage-farm','stage-collection','stage-transport','stage-warehouse','stage-retailer','stage-consumer'];
+      const idx = order.indexOf(lastStage);
+      if (idx + 1 < order.length) document.getElementById(order[idx+1]).classList.add('active');
+    }
+
+    // Timeline
+    if (!events.length) {
+      document.getElementById('timelineContainer').innerHTML =
+        '<div style="text-align:center;padding:2rem;color:var(--c-text-muted)">No supply chain events recorded yet. Register events from the Farmer dashboard.</div>';
+      return;
+    }
+
+    document.getElementById('timelineContainer').innerHTML = `
+      <h3 style="margin-bottom:1.5rem">Supply Journey Timeline</h3>
+      <div class="timeline">
+        ${events.map(ev => `
+          <div class="timeline-item">
+            <div class="timeline-dot done">✓</div>
+            <div class="timeline-card">
+              <div class="timeline-title">${EVENT_LABELS[ev.event_type] || ev.event_type}</div>
+              <div class="timeline-meta">
+                <span>📍 ${ev.location || '—'}</span>
+                <span>👤 ${ev.actor_name || ev.user_id}</span>
+                <span>🕐 ${formatDT(ev.created_at)}</span>
+                ${ev.notes ? `<span>📝 ${ev.notes}</span>` : ''}
+              </div>
+              <div class="timeline-hash">
+                <span style="color:var(--c-text-dim);font-size:.68rem">Hash: </span>
+                <span style="color:var(--c-green)">${ev.data_hash || '—'}</span>
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+
+  } catch(e) {
+    document.getElementById('timelineContainer').innerHTML =
+      `<div class="badge badge-red" style="margin:2rem auto;display:block;width:fit-content;padding:.75rem 1.5rem">❌ ${e.message}</div>`;
+    toast(e.message, 'error');
+  }
+}
+
+// Check URL param
+const urlParam = new URLSearchParams(window.location.search).get('id');
+if (urlParam) {
+  document.getElementById('supplyProductId').value = urlParam;
+  loadSupply();
+}
+</script>
+</body>
+</html>

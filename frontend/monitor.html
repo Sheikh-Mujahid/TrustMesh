@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Live Sensor Monitoring — Trust Mesh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+<style>
+.monitor-page { padding: 80px 2rem 3rem; max-width: 1400px; margin: 0 auto; }
+.chart-container { height: 380px; position: relative; }
+.reading-row td { transition: background .3s; }
+.reading-row:first-child td { background: rgba(74,222,128,.06); }
+.temp-high { color: var(--c-red) !important; }
+.hum-high  { color: var(--c-blue) !important; }
+.alert-banner {
+  display: none; padding: .75rem 1.5rem;
+  background: rgba(248,113,113,.15); border: 1px solid rgba(248,113,113,.3);
+  border-radius: var(--radius); margin-bottom: 1rem;
+  font-weight: 600; color: var(--c-red);
+}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-brand"><div class="nav-logo">🌾</div><span class="nav-title">Trust Mesh</span></div>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="farmer.html">Farmer</a></li>
+    <li><a href="hardware.html">Device</a></li>
+    <li><a href="monitor.html" class="active">Live Sensors</a></li>
+    <li><a href="supply.html">Supply Chain</a></li>
+    <li><a href="blockchain.html">Blockchain</a></li>
+    <li><a href="verify.html">Verify</a></li>
+    <li><a href="admin.html">Admin</a></li>
+  </ul>
+  <div class="nav-status"><div class="status-dot" id="apiDot"></div><span id="apiStatus">Connecting...</span></div>
+</nav>
+
+<div class="monitor-page">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+    <div>
+      <h1 class="page-title" style="font-size:2rem;padding:0">Live Sensor Monitoring</h1>
+      <p style="color:var(--c-text-muted);font-size:.88rem">Auto-refreshes every 5 seconds from ESP32</p>
+    </div>
+    <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+      <select id="productSel" class="form-control" style="padding:.5rem .75rem;border-radius:var(--radius-sm);background:rgba(255,255,255,.04);border:1px solid var(--c-border2);color:var(--c-text);font-family:var(--font-main)">
+        <option value="AGRI-001">AGRI-001 — Tomatoes</option>
+        <option value="AGRI-002">AGRI-002 — Onions</option>
+      </select>
+      <div id="liveBadge" class="badge badge-green">● LIVE</div>
+    </div>
+  </div>
+
+  <div id="alertBanner" class="alert-banner">⚠️ Temperature or Humidity outside safe range!</div>
+
+  <!-- Live Metrics -->
+  <div class="metric-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:1.5rem">
+    <div class="metric-card" style="border-color:rgba(251,146,60,.3)">
+      <div class="metric-icon">🌡️</div>
+      <div class="metric-label">Temperature</div>
+      <div class="metric-val metric-temp" id="livTemp">—</div>
+      <div class="metric-sub">Current reading</div>
+    </div>
+    <div class="metric-card" style="border-color:rgba(96,165,250,.3)">
+      <div class="metric-icon">💧</div>
+      <div class="metric-label">Humidity</div>
+      <div class="metric-val metric-humid" id="livHum">—</div>
+      <div class="metric-sub">Current reading</div>
+    </div>
+    <div class="metric-card" style="border-color:rgba(74,222,128,.3)">
+      <div class="metric-icon">📊</div>
+      <div class="metric-label">Avg Temp (24h)</div>
+      <div class="metric-val metric-temp" id="avgTemp">—</div>
+      <div class="metric-sub">Historical average</div>
+    </div>
+    <div class="metric-card" style="border-color:rgba(74,222,128,.3)">
+      <div class="metric-icon">📊</div>
+      <div class="metric-label">Avg Humidity</div>
+      <div class="metric-val metric-humid" id="avgHum">—</div>
+      <div class="metric-sub">Historical average</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">📦</div>
+      <div class="metric-label">Total Readings</div>
+      <div class="metric-val metric-ok" id="totalReadings">—</div>
+      <div class="metric-sub">All time</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">📍</div>
+      <div class="metric-label">Last GPS</div>
+      <div class="metric-val" style="font-size:.95rem;color:var(--c-green)" id="livGPS">—</div>
+      <div class="metric-sub" id="livCoords">—</div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="glass-card" style="margin-bottom:1.5rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <h3>Temperature & Humidity — Time Series</h3>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn" onclick="setLimit(20)">20</button>
+        <button class="btn" onclick="setLimit(50)">50</button>
+        <button class="btn" onclick="setLimit(100)">100</button>
+      </div>
+    </div>
+    <div class="chart-container"><canvas id="sensorChart"></canvas></div>
+  </div>
+
+  <!-- Recent readings table -->
+  <div class="glass-card">
+    <h3 style="margin-bottom:1rem">Recent Readings</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Timestamp</th><th>Temperature</th><th>Humidity</th><th>GPS</th><th>Hash</th><th>Source</th></tr></thead>
+        <tbody id="readingsTable"><tr><td colspan="6" style="text-align:center;color:var(--c-text-muted)"><div class="spinner"></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="sim-banner" id="simBanner" style="display:none">
+  ⚠️ <strong>SIMULATION MODE ACTIVE</strong> — Data generated by software, not physical hardware
+  <button onclick="stopSim()" class="sim-stop-btn">Stop Simulation</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+let chart = null;
+let currentLimit = 50;
+let currentProduct = 'AGRI-001';
+
+function setLimit(n) { currentLimit = n; loadData(); }
+
+document.getElementById('productSel').addEventListener('change', e => {
+  currentProduct = e.target.value;
+  loadData();
+});
+
+async function loadData() {
+  try {
+    const res = await API.getSensorHistory(currentProduct, currentLimit);
+    const data = res.data || [];
+
+    if (!data.length) return;
+
+    const latest = data[0];
+    const t = formatNum(latest.temperature, 1);
+    const h = formatNum(latest.humidity, 1);
+
+    document.getElementById('livTemp').textContent = t + '°C';
+    document.getElementById('livHum').textContent  = h + '%';
+    document.getElementById('livGPS').textContent  = coordsToCity(latest.latitude, latest.longitude);
+    document.getElementById('livCoords').textContent = `${formatNum(latest.latitude,4)}°N, ${formatNum(latest.longitude,4)}°E`;
+    document.getElementById('totalReadings').textContent = res.count;
+
+    // Averages
+    const avgT = data.reduce((s,r)=>s+(+r.temperature),0)/data.length;
+    const avgH = data.reduce((s,r)=>s+(+r.humidity),0)/data.length;
+    document.getElementById('avgTemp').textContent = avgT.toFixed(1) + '°C';
+    document.getElementById('avgHum').textContent  = avgH.toFixed(1) + '%';
+
+    // Alerts
+    const alert = document.getElementById('alertBanner');
+    if (latest.temperature > 35 || latest.temperature < 5 || latest.humidity > 95) {
+      alert.style.display = 'block';
+    } else {
+      alert.style.display = 'none';
+    }
+
+    // Chart
+    const sorted = [...data].reverse();
+    const labels  = sorted.map(r => new Date(r.received_at).toLocaleTimeString('en-IN'));
+    const temps   = sorted.map(r => r.temperature);
+    const hums    = sorted.map(r => r.humidity);
+
+    if (!chart) {
+      chart = buildSensorChart('sensorChart', labels, temps, hums);
+    } else {
+      chart.data.labels           = labels;
+      chart.data.datasets[0].data = temps;
+      chart.data.datasets[1].data = hums;
+      chart.update('none');
+    }
+
+    // Table
+    const tbody = document.getElementById('readingsTable');
+    tbody.innerHTML = data.slice(0,30).map(r => `
+      <tr class="reading-row">
+        <td>${formatDT(r.received_at)}</td>
+        <td class="${+r.temperature > 35 ? 'temp-high' : 'metric-temp'}">${formatNum(r.temperature,1)}°C</td>
+        <td class="${+r.humidity > 90 ? 'hum-high' : 'metric-humid'}">${formatNum(r.humidity,1)}%</td>
+        <td style="font-size:.78rem">${formatNum(r.latitude,4)}, ${formatNum(r.longitude,4)}</td>
+        <td class="mono">${shortHash(r.data_hash)}</td>
+        <td>${r.is_simulated ? '<span class="badge badge-orange">SIM</span>' : '<span class="badge badge-green">ESP32</span>'}</td>
+      </tr>`).join('');
+
+    // Sim banner - check active state from stats
+    try {
+      const stats = await API.getStats();
+      document.getElementById('simBanner').style.display = stats.simulation_mode ? 'flex' : 'none';
+    } catch(_) {}
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+async function stopSim() {
+  await API.stopSimulation();
+  document.getElementById('simBanner').style.display = 'none';
+  toast('Simulation stopped', 'info');
+}
+
+loadData();
+setInterval(loadData, 5000);
+</script>
+</body>
+</html>

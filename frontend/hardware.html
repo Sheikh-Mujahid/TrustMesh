@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hardware Dashboard — Trust Mesh</title>
+<meta name="description" content="Live ESP32 hardware status, sensor values, device connection status.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+<style>
+.hw-page { padding: 80px 2rem 3rem; max-width: 1400px; margin: 0 auto; }
+.device-header {
+  display: flex; align-items: center; gap: 1.5rem;
+  padding: 1.5rem; border-radius: var(--radius-lg);
+  background: var(--c-panel); border: 1px solid var(--c-border);
+  margin-bottom: 2rem;
+}
+.device-avatar {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--c-green-d), var(--c-green));
+  display: flex; align-items: center; justify-content: center; font-size: 2rem;
+  flex-shrink: 0;
+}
+.device-info h2 { font-size: 1.35rem; font-weight: 800; margin-bottom: .25rem; }
+.device-info p  { color: var(--c-text-muted); font-size: .85rem; }
+.device-status  { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: .35rem; }
+.live-indicator {
+  display: flex; align-items: center; gap: .5rem;
+  font-size: .85rem; font-weight: 700; color: var(--c-green);
+}
+.live-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--c-green); animation: livePulse 1.5s infinite;
+  box-shadow: 0 0 10px var(--c-green);
+}
+@keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+.live-dot.offline { background: var(--c-red); box-shadow: 0 0 10px var(--c-red); animation: none; }
+
+.metric-card.temp-card  { border-color: rgba(251,146,60,.3); }
+.metric-card.humid-card { border-color: rgba(96,165,250,.3); }
+.metric-card.gps-card   { border-color: rgba(74,222,128,.3); }
+.metric-card.chain-card { border-color: rgba(250,204,21,.3); }
+.metric-card.wifi-card  { border-color: rgba(167,139,250,.3); }
+.metric-card.bat-card   { border-color: rgba(74,222,128,.2); }
+
+.oled-sim {
+  background: #000d00; border: 3px solid #4ade80; border-radius: 8px;
+  padding: 1rem; font-family: var(--font-mono); font-size: .78rem;
+  color: #4ade80; line-height: 1.6; min-height: 120px;
+  box-shadow: 0 0 20px rgba(74,222,128,.2), inset 0 0 20px rgba(0,0,0,.5);
+  letter-spacing: .05em;
+}
+.oled-line { border-bottom: 1px solid #0a1a0a; padding: .1rem 0; }
+
+.wiring-table th { color: var(--c-green); }
+.proto-badge {
+  padding: .15rem .4rem; border-radius: 4px; font-size: .7rem; font-weight: 700;
+}
+.proto-i2c    { background: rgba(167,139,250,.2); color: var(--c-purple); }
+.proto-uart   { background: rgba(96,165,250,.2);  color: var(--c-blue); }
+.proto-1wire  { background: rgba(251,146,60,.2);  color: var(--c-orange); }
+.proto-digital{ background: rgba(74,222,128,.2);  color: var(--c-green); }
+
+.pin-badge {
+  display: inline-block; padding: .15rem .45rem; border-radius: 4px;
+  background: rgba(250,204,21,.15); color: var(--c-gold); font-family: var(--font-mono); font-size: .78rem;
+}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-brand"><div class="nav-logo">🌾</div><span class="nav-title">Trust Mesh</span></div>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="farmer.html">Farmer</a></li>
+    <li><a href="hardware.html" class="active">Device</a></li>
+    <li><a href="monitor.html">Live Sensors</a></li>
+    <li><a href="supply.html">Supply Chain</a></li>
+    <li><a href="blockchain.html">Blockchain</a></li>
+    <li><a href="verify.html">Verify</a></li>
+    <li><a href="admin.html">Admin</a></li>
+  </ul>
+  <div class="nav-status"><div class="status-dot" id="apiDot"></div><span id="apiStatus">Connecting...</span></div>
+</nav>
+
+<div class="hw-page">
+  <!-- Device header -->
+  <div class="device-header">
+    <div class="device-avatar">📡</div>
+    <div class="device-info">
+      <h2 id="devId">DEVICE-001</h2>
+      <p>ESP32 DevKit V1 · Firmware v1.0.0 · MAC: AA:BB:CC:DD:EE:01</p>
+      <p style="color:var(--c-text-dim);font-size:.78rem;margin-top:.25rem">Owner: Ramesh Patil — Nashik, Maharashtra</p>
+    </div>
+    <div class="device-status">
+      <div class="live-indicator"><div class="live-dot" id="liveDot"></div><span id="liveLabel">Checking...</span></div>
+      <span id="lastSeenLabel" style="font-size:.75rem;color:var(--c-text-muted)">Last seen: —</span>
+      <span id="simTag" class="badge badge-orange" style="display:none">SIM MODE</span>
+    </div>
+  </div>
+
+  <!-- Metric cards -->
+  <div class="metric-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+    <div class="metric-card temp-card">
+      <div class="metric-icon">🌡️</div>
+      <div class="metric-label">Temperature</div>
+      <div class="metric-val metric-temp" id="mTemp">—</div>
+      <div class="metric-sub">°Celsius</div>
+    </div>
+    <div class="metric-card humid-card">
+      <div class="metric-icon">💧</div>
+      <div class="metric-label">Humidity</div>
+      <div class="metric-val metric-humid" id="mHumid">—</div>
+      <div class="metric-sub">Percent</div>
+    </div>
+    <div class="metric-card gps-card">
+      <div class="metric-icon">📍</div>
+      <div class="metric-label">GPS Location</div>
+      <div class="metric-val" style="font-size:1rem;color:var(--c-green)" id="mGPS">—</div>
+      <div class="metric-sub" id="mCoords">Acquiring...</div>
+    </div>
+    <div class="metric-card wifi-card">
+      <div class="metric-icon">📶</div>
+      <div class="metric-label">Wi-Fi</div>
+      <div class="metric-val metric-ok" id="mWifi">—</div>
+      <div class="metric-sub">2.4GHz</div>
+    </div>
+    <div class="metric-card chain-card">
+      <div class="metric-icon">⛓️</div>
+      <div class="metric-label">Blockchain</div>
+      <div class="metric-val metric-chain" id="mChain">—</div>
+      <div class="metric-sub" id="mBlocks">blocks</div>
+    </div>
+    <div class="metric-card bat-card">
+      <div class="metric-icon">🔌</div>
+      <div class="metric-label">Power</div>
+      <div class="metric-val metric-ok">USB</div>
+      <div class="metric-sub">5V / 0.5A</div>
+    </div>
+  </div>
+
+  <!-- Two columns: OLED sim + wiring -->
+  <div style="display:grid;grid-template-columns:1fr 2fr;gap:1.5rem;margin-bottom:2rem">
+
+    <!-- OLED Simulation -->
+    <div class="glass-card">
+      <h3 style="margin-bottom:1rem;font-size:.9rem;color:var(--c-text-muted);text-transform:uppercase;letter-spacing:.1em">OLED Display (Simulated)</h3>
+      <div class="oled-sim" id="oledSim">
+        <div class="oled-line">DEVICE: DEVICE-001</div>
+        <div class="oled-line">WiFi: CONNECTING...</div>
+        <div class="oled-line">T:--.- C  H:--.-  %</div>
+        <div class="oled-line">GPS: Acquiring...</div>
+        <div class="oled-line">API: --</div>
+        <div class="oled-line">Sent: 0  Pkt</div>
+      </div>
+      <div style="margin-top:.75rem;font-size:.72rem;color:var(--c-text-dim)">128×64 SSD1306 · I2C · 0x3C</div>
+    </div>
+
+    <!-- Wiring Table -->
+    <div class="glass-card">
+      <h3 style="margin-bottom:1rem;font-size:.9rem;color:var(--c-text-muted);text-transform:uppercase;letter-spacing:.1em">Circuit Wiring Specification</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Component</th><th>ESP32 Pin</th><th>Power</th><th>GND</th><th>Protocol</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>DHT22</strong> — Temp/Humidity</td>
+              <td><span class="pin-badge">GPIO 4</span></td>
+              <td>3.3V</td><td>GND</td>
+              <td><span class="proto-badge proto-1wire">1-Wire</span></td>
+              <td>10kΩ pull-up resistor between Data and VCC</td>
+            </tr>
+            <tr>
+              <td><strong>NEO-6M GPS</strong> TX→ESP RX</td>
+              <td><span class="pin-badge">GPIO 16 (RX2)</span></td>
+              <td>3.3V</td><td>GND</td>
+              <td><span class="proto-badge proto-uart">UART 9600</span></td>
+              <td>GPS TX → ESP32 GPIO 16</td>
+            </tr>
+            <tr>
+              <td><strong>NEO-6M GPS</strong> RX←ESP TX</td>
+              <td><span class="pin-badge">GPIO 17 (TX2)</span></td>
+              <td>3.3V</td><td>GND</td>
+              <td><span class="proto-badge proto-uart">UART 9600</span></td>
+              <td>GPS RX ← ESP32 GPIO 17 (optional)</td>
+            </tr>
+            <tr>
+              <td><strong>SSD1306 OLED</strong> SDA</td>
+              <td><span class="pin-badge">GPIO 21 (SDA)</span></td>
+              <td>3.3V</td><td>GND</td>
+              <td><span class="proto-badge proto-i2c">I²C 0x3C</span></td>
+              <td>Standard I2C bus</td>
+            </tr>
+            <tr>
+              <td><strong>SSD1306 OLED</strong> SCL</td>
+              <td><span class="pin-badge">GPIO 22 (SCL)</span></td>
+              <td>3.3V</td><td>GND</td>
+              <td><span class="proto-badge proto-i2c">I²C 0x3C</span></td>
+              <td>Standard I2C bus</td>
+            </tr>
+            <tr>
+              <td><strong>Status LED</strong> (Green)</td>
+              <td><span class="pin-badge">GPIO 2</span></td>
+              <td>via 220Ω</td><td>GND</td>
+              <td><span class="proto-badge proto-digital">Digital OUT</span></td>
+              <td>220Ω series resistor required</td>
+            </tr>
+            <tr>
+              <td><strong>Buzzer</strong> (Active 5V)</td>
+              <td><span class="pin-badge">GPIO 25</span></td>
+              <td>via NPN</td><td>GND</td>
+              <td><span class="proto-badge proto-digital">Digital OUT</span></td>
+              <td>NPN transistor (2N2222) as driver</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firmware Code Snippet -->
+  <div class="glass-card">
+    <h3 style="margin-bottom:1rem;font-size:.9rem;color:var(--c-text-muted);text-transform:uppercase;letter-spacing:.1em">Arduino Libraries Required</h3>
+    <div style="font-family:var(--font-mono);font-size:.82rem;background:#050a05;border-radius:8px;padding:1rem;line-height:1.8;color:#4ade80">
+      <div><span style="color:#7d9b82">// Board: "ESP32 Dev Module" in Arduino IDE</span></div>
+      <div>#include &lt;WiFi.h&gt;            <span style="color:#7d9b82">// built-in</span></div>
+      <div>#include &lt;HTTPClient.h&gt;      <span style="color:#7d9b82">// built-in</span></div>
+      <div>#include &lt;ArduinoJson.h&gt;     <span style="color:#7d9b82">// v6.21+ — ArduinoJson by Benoit Blanchon</span></div>
+      <div>#include &lt;DHT.h&gt;             <span style="color:#7d9b82">// DHT sensor library by Adafruit</span></div>
+      <div>#include &lt;Adafruit_GFX.h&gt;    <span style="color:#7d9b82">// Adafruit GFX Library</span></div>
+      <div>#include &lt;Adafruit_SSD1306.h&gt; <span style="color:#7d9b82">// Adafruit SSD1306</span></div>
+      <div>#include &lt;TinyGPS++.h&gt;       <span style="color:#7d9b82">// TinyGPS++ by Mikal Hart</span></div>
+    </div>
+    <div style="margin-top:.75rem;text-align:right">
+      <a href="../esp32/agriledger_firmware.ino" class="btn">📄 View Full Firmware</a>
+    </div>
+  </div>
+</div>
+
+<div class="sim-banner" id="simBanner" style="display:none">
+  ⚠️ <strong>SIMULATION MODE ACTIVE</strong> — Data generated by software, not physical hardware
+  <button onclick="stopSim()" class="sim-stop-btn">Stop Simulation</button>
+</div>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+let pktCount = 0;
+
+async function updateHardware() {
+  try {
+    const stats = await API.getStats();
+    const latest = stats.latest_reading;
+
+    if (latest) {
+      const t = formatNum(latest.temperature, 1);
+      const h = formatNum(latest.humidity, 1);
+      const lat = formatNum(latest.latitude, 4);
+      const lon = formatNum(latest.longitude, 4);
+      const isSim = !!latest.is_simulated;
+
+      document.getElementById('mTemp').textContent   = t + '°C';
+      document.getElementById('mHumid').textContent  = h + '%';
+      document.getElementById('mGPS').textContent    = coordsToCity(latest.latitude, latest.longitude);
+      document.getElementById('mCoords').textContent = `${lat}°N, ${lon}°E`;
+      document.getElementById('mWifi').textContent   = 'CONNECTED';
+      document.getElementById('mChain').textContent  = stats.blockchain_txns || 0;
+      document.getElementById('mBlocks').textContent = 'on-chain records';
+
+      pktCount = stats.sensor_readings || 0;
+
+      // OLED simulation
+      document.getElementById('oledSim').innerHTML = `
+        <div class="oled-line">DEVICE: ${isSim ? 'DEVICE-SIM-001' : 'DEVICE-001'}</div>
+        <div class="oled-line">WiFi: CONNECTED</div>
+        <div class="oled-line">T:${t}C  H:${h}%</div>
+        <div class="oled-line">GPS:${parseFloat(lat).toFixed(3)},${parseFloat(lon).toFixed(3)}</div>
+        <div class="oled-line">API: OK</div>
+        <div class="oled-line">Sent:${pktCount}  Pkt</div>
+      `;
+
+      // Live dot
+      document.getElementById('liveDot').classList.remove('offline');
+      document.getElementById('liveLabel').textContent = 'CONNECTED ✓';
+      document.getElementById('lastSeenLabel').textContent = 'Last seen: ' + formatDT(latest.received_at);
+
+      if (isSim) {
+        document.getElementById('simBanner').style.display = 'flex';
+        document.getElementById('simTag').style.display = 'inline-flex';
+      }
+    } else {
+      document.getElementById('liveDot').classList.add('offline');
+      document.getElementById('liveLabel').textContent = 'OFFLINE';
+    }
+  } catch(e) {
+    document.getElementById('liveDot').classList.add('offline');
+    document.getElementById('liveLabel').textContent = 'OFFLINE';
+  }
+}
+
+async function stopSim() {
+  await API.stopSimulation();
+  document.getElementById('simBanner').style.display = 'none';
+}
+
+updateHardware();
+setInterval(updateHardware, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blockchain Explorer — Trust Mesh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css">
+<style>
+.chain-page { padding: 80px 2rem 3rem; max-width: 1100px; margin: 0 auto; }
+.chain-note {
+  padding: .75rem 1.25rem; border-radius: var(--radius);
+  background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.2);
+  font-size: .82rem; color: var(--c-gold); margin-bottom: 2rem;
+}
+</style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-brand"><div class="nav-logo">🌾</div><span class="nav-title">Trust Mesh</span></div>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="farmer.html">Farmer</a></li>
+    <li><a href="hardware.html">Device</a></li>
+    <li><a href="monitor.html">Live Sensors</a></li>
+    <li><a href="supply.html">Supply Chain</a></li>
+    <li><a href="blockchain.html" class="active">Blockchain</a></li>
+    <li><a href="verify.html">Verify</a></li>
+    <li><a href="admin.html">Admin</a></li>
+  </ul>
+  <div class="nav-status"><div class="status-dot" id="apiDot"></div><span id="apiStatus">Connecting...</span></div>
+</nav>
+
+<div class="chain-page">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem">
+    <div>
+      <h1 class="page-title" style="font-size:2rem;padding:0">⛓️ Blockchain Explorer</h1>
+      <p style="color:var(--c-text-muted)">SHA-256 proof-of-work blocks for each product</p>
+    </div>
+    <div style="display:flex;gap:.75rem;align-items:center">
+      <input type="text" id="chainProductId" value="AGRI-001" style="padding:.5rem .75rem;border-radius:var(--radius-sm);background:rgba(255,255,255,.04);border:1px solid var(--c-border2);color:var(--c-text);font-family:var(--font-main)" placeholder="Product ID">
+      <button class="btn btn-gold" onclick="loadChain()">Explore →</button>
+    </div>
+  </div>
+
+  <div class="chain-note">
+    ⚠️ <strong>Prototype Notice:</strong> This is a local SHA-256 blockchain (not a decentralised network). It is designed so that Hyperledger Fabric or IOTA Tangle can be integrated as a production replacement. Off-chain data stays in MySQL; only hashes and event types are recorded on-chain.
+  </div>
+
+  <!-- Validity banner -->
+  <div id="validityBanner" style="display:none;margin-bottom:1.5rem"></div>
+
+  <!-- Stats row -->
+  <div class="metric-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:2rem" id="chainStats">
+  </div>
+
+  <!-- Blocks -->
+  <div id="blockList"><div style="text-align:center;padding:3rem;color:var(--c-text-muted)">Enter a Product ID to explore its blockchain.</div></div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+async function loadChain() {
+  const pid = document.getElementById('chainProductId').value.trim();
+  document.getElementById('blockList').innerHTML = '<div class="spinner"></div>';
+  document.getElementById('chainStats').innerHTML = '';
+
+  try {
+    const res = await API.getBlockchain(pid);
+    const verify = await API.verifyProduct(pid);
+    const chain = res.blocks || [];
+
+    // Validity banner
+    const valid = verify.blockchain?.chain_valid !== false;
+    document.getElementById('validityBanner').style.display = 'block';
+    document.getElementById('validityBanner').innerHTML = valid
+      ? `<div style="padding:.75rem 1.5rem;border-radius:var(--radius);background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.3);color:var(--c-green);font-weight:700;font-size:.9rem">✅ CHAIN VALID — All ${chain.length} blocks verified. No tampering detected.</div>`
+      : `<div style="padding:.75rem 1.5rem;border-radius:var(--radius);background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:var(--c-red);font-weight:700;font-size:.9rem;animation:tamperBlink .5s infinite">🚨 DATA TAMPERED — Hash mismatch detected in chain!</div>`;
+
+    // Stats
+    document.getElementById('chainStats').innerHTML = `
+      <div class="metric-card"><div class="metric-label">Total Blocks</div><div class="metric-val metric-chain">${chain.length}</div></div>
+      <div class="metric-card"><div class="metric-label">Product</div><div class="metric-val" style="font-size:1rem;color:var(--c-green)">${pid}</div></div>
+      <div class="metric-card"><div class="metric-label">Chain Status</div><div class="metric-val ${valid ? 'metric-ok' : 'metric-err'}">${valid ? 'VALID' : 'TAMPERED'}</div></div>
+      <div class="metric-card"><div class="metric-label">Algorithm</div><div class="metric-val" style="font-size:.85rem;color:var(--c-text-muted)">SHA-256</div></div>`;
+
+    // Render blocks (newest first for display)
+    document.getElementById('blockList').innerHTML = [...chain].reverse().map(b => {
+      const blockVerify = verify.blockchain?.blocks?.find(bv => bv.block_index === b.index);
+      const isValid = !blockVerify || blockVerify.status === 'VALID';
+      return `
+        <div class="block-card">
+          <div class="block-header">
+            <div class="block-index">#${b.index}</div>
+            <div>
+              <div class="block-event">${b.event_type}</div>
+              <div class="block-ts">${formatDT(b.timestamp)}</div>
+            </div>
+            <div style="margin-left:auto">
+              ${isValid
+                ? '<span class="block-valid">✓ VALID</span>'
+                : '<span class="block-tampered">⚠ TAMPERED</span>'}
+            </div>
+          </div>
+          <div class="hash-row">
+            <span class="hash-label">PREV</span>
+            <span class="prev-hash">${b.previous_hash}</span>
+          </div>
+          <div class="hash-row">
+            <span class="hash-label">HASH</span>
+            <span class="hash-val">${b.current_hash}</span>
+          </div>
+          <div class="hash-row">
+            <span class="hash-label">PAYLOAD</span>
+            <span style="color:var(--c-purple);font-family:var(--font-mono);font-size:.72rem">${b.sensor_data_hash}</span>
+          </div>
+          <div style="font-size:.72rem;color:var(--c-text-dim);margin-top:.35rem">Nonce: ${b.nonce} · Product: ${b.product_id}</div>
+        </div>`;
+    }).join('');
+
+  } catch(e) {
+    document.getElementById('blockList').innerHTML =
+      `<div class="badge badge-red" style="margin:2rem auto;display:block;width:fit-content;padding:.75rem 1.5rem">❌ ${e.message}</div>`;
+    toast(e.message, 'error');
+  }
+}
+
+const urlParam = new URLSearchParams(window.location.search).get('id');
+if (urlParam) {
+  document.getElementById('chainProductId').value = urlParam;
+  loadChain();
+} else {
+  loadChain();
+}
+</script>
+</body>
+</html>
